@@ -1,0 +1,2125 @@
+---
+title: "Análisis Exploratorio"
+output:
+  word_document: default
+  html_document: default
+date: "2025-07-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r message=FALSE, warning=FALSE}
+
+library(tidyverse)
+library(dplyr)
+library(skimr)
+library(PerformanceAnalytics)
+library(corrplot)
+library(BBmisc)
+library(ggpubr)
+
+```
+
+## Mazak Variaxis 630-5X II (#11)
+
+```{r}
+
+variaxis <- read.csv("Variaxis.csv",header = TRUE)
+
+variaxis <- variaxis %>% 
+  distinct() %>%  #Eliminar duplicados
+  filter(Temperatura > 0) %>%  #Eliminar filas con puros 0. 
+  filter(Voltaje > 200) %>% #Quitar los voltajes demasiado pequeños.
+  filter(Corriente_1 < 100) #Quitar el resgistro extremadamente alto que se encontró.
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+variaxis$Fecha <- as.POSIXct(variaxis$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+variaxis$Mes <- as.character(variaxis$Mes)
+variaxis$Hora <- as.character(variaxis$Hora)
+
+```
+
+```{r}
+
+print(head(variaxis,5))
+
+```
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+variaxis %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Temperatura), binwidth = 0.1, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Humedad), binwidth = 0.5, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia")
+
+hist_vol <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Voltaje), binwidth = 0.5, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_cor1 <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Corriente_1), binwidth = 0.10, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 1", y = "Frecuencia")
+
+hist_cor2 <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Corriente_2), binwidth = 0.004, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 2", y = "Frecuencia")
+
+hist_cor3 <- ggplot(data = variaxis) +
+  geom_histogram(mapping = aes(x = Corriente_3), binwidth = 0.004, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 3", y = "Frecuencia")
+
+ggarrange(hist_tem, hist_hum, hist_vol, hist_cor1, hist_cor2, hist_cor3,
+          ncol = 2, nrow = 3)
+
+```
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(variaxis, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(variaxis, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_vol <- ggplot(variaxis, aes(y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_cor1 <- ggplot(variaxis, aes(y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_cor2 <- ggplot(variaxis, aes(y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_cor3 <- ggplot(variaxis, aes(y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_tem, box_hum, box_vol, box_cor1, box_cor2, box_cor3,
+          ncol = 3, nrow = 2)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través del tiempo.
+
+```{r}
+
+variaxis_semanal <- variaxis %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad), Voltaje = mean(Voltaje),
+            Corriente_1 = mean(Corriente_1), Corriente_2 = mean(Corriente_2), Corriente_3 = mean(Corriente_3))
+
+serie_tem <- ggplot(variaxis_semanal, aes(x = Semana, y = Temperatura)) + geom_line(color = "darkgoldenrod3")
+serie_hum <- ggplot(variaxis_semanal, aes(x = Semana, y = Humedad)) + geom_line(color = "darkgoldenrod3")
+serie_vol <- ggplot(variaxis_semanal, aes(x = Semana, y = Voltaje)) + geom_line(color = "darkgoldenrod3")
+
+serie_cors <- ggplot(variaxis_semanal, aes(x = Semana)) + 
+  geom_line(aes(y = Corriente_1), color = "darkgoldenrod3") + 
+  geom_line(aes( y = Corriente_2), color = "darksalmon") +
+  geom_line(aes( y = Corriente_3), color = 'brown') +
+  xlab("Semana") + 
+  ylab("Corrientes") +
+  annotate("text", x = 25.5, y = 1.5, size = 3, label = "Corriente 1", color = "darkgoldenrod3") +
+  annotate("text", x = 20, y = 0.83, size = 3, label = "Corriente 3", color = "brown") + 
+  annotate("text", x = 20, y = 0.5, size = 3, label = "Corriente 2", color = "darksalmon")
+
+ggarrange(serie_tem, serie_hum, serie_vol, serie_cors,
+          ncol = 2, nrow = 2)
+
+```
+
+#### Observaciones Generales:
+
+-   Había un registro que contaba con la mayoría de las variables siendo 0. Este registro se consideró un error, por lo que se eliminó.
+-   Existían cerca de 200,000 valores duplicados, es decir que tenían la exacta misma hora y las mismas mediciones.
+
+#### Observaciones por Variable:
+
+-   Temperatura: Con un comportamiento un tanto normal con algunos datos que se repiten mucho.
+-   Humedad: Una tendecia normal pero con eso sesgo hacia la izquierda.
+-   Voltaje: Según datos de internet, lo normar para una máquina variaxis es tener un voltaje de 220 a 240V. No obstante, existen 2 registros de 3V y otros dos registros de 35V, los cuales serán considerados como errores de medición.
+-   Corriente 1: La corriente 1 tenía un registro extremadamente alto, de miles de amperes, este registro fue eliminado. Asimismo, hay varias decenas de registros con valores atípicos, de más de 10. La causa de estos registros no queda muy clara por el momento.
+-   Corriente 2: Luce una distribución normal muy evidente. Varían muy poco a lo largo de los días.
+-   Corriente 3: Luce una distribución normal muy evidente. Varían muy poco a lo largo de los días.
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+variaxis_variables <- variaxis %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3)
+
+variaxis_norm <- normalize(variaxis_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(variaxis_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(variaxis_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(variaxis_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+A partir de las matrices anteriores, se puede distinguir que la temperatura y la humedad parecen estar correlacionadas, al igual que la corriente 2 y corriente 3. Asimismo, la corriente 1 no parece correlacionarse con la humedad y la temperatura.
+
+#### Comparación de las variables para cada día de la semana
+
+```{r echo=FALSE}
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+variaxis %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_dia_tem <- ggplot(variaxis, aes(x = Dia, y = Temperatura)) + geom_boxplot(fill = "cornsilk") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+box_dia_hum <- ggplot(variaxis, aes(x = Dia, y = Humedad)) + geom_boxplot(fill = "cornsilk")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+box_dia_vol <- ggplot(variaxis, aes(x = Dia, y = Voltaje)) + geom_boxplot(fill = "cornsilk")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+box_dia_cor1 <- ggplot(variaxis, aes(x = Dia, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+box_dia_cor2 <- ggplot(variaxis, aes(x = Dia, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+box_dia_cor3 <- ggplot(variaxis, aes(x = Dia, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggarrange(box_dia_tem,box_dia_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_dia_vol,box_dia_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_dia_cor2,box_dia_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+No se observa una diferencia considerable entre las variables para cada día de la semana. Los valores de estas no parecen tener correlación con los días de la semana.
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+variaxis %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(variaxis, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(variaxis, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(variaxis, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(variaxis, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor2 <- ggplot(variaxis, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor3 <- ggplot(variaxis, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_vol, box_mes_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_cor2, box_mes_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+Se observa un incremento en la temperatura en el mes de mayo, en comparación con el resto de los meses. La humedad parece estar aumentando por cada mes que pasa. El voltaje y las corrientes no parecen tener una alta correlación con los meses.
+
+## Mazak Nexus 510C-II (#7)
+
+
+
+## Mazak Integrex 100-IV (#13)
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+integrex <- read.csv("Integrex.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+integrex$Fecha <- as.POSIXct(integrex$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+integrex$Mes <- as.character(integrex$Mes)
+integrex$Hora <- as.character(integrex$Hora)
+
+head(integrex,6)
+
+```
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+integrex %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+Se pudo observar que existen uno o más registros que tienen un valor de 0 para cada variable, lo que podría deberse a un error de medición. A continuación se muestran estos resgistros.
+
+```{r}
+
+integrex %>% 
+  filter(Temperatura == 0)
+
+```
+
+Se observa que existen 4 registros con puros 0 en toras las variables, lo que con toda probabilidad nos indica que son errores. Asimismo, se puede observar que dos de estos datos son duplicados, por lo que también se procede a hacer una limpieza de duplicados a la base de datos.
+
+```{r}
+
+integrex <- integrex %>% 
+  distinct() %>%  #Eliminar duplicados
+  filter(Temperatura > 0)  #Eliminar filas con puros 0. 
+
+```
+
+Se vuelven a obtener las estadísticas descriptivas, en donde se observa que de 138,414 registros que habían, solamente quedaron 69,643.
+
+```{r echo=FALSE}
+
+integrex %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+Se hacen observaciones sobre el dato atípicamente bajo de la temperatura y el del voltaje.
+
+```{r}
+
+integrex %>% 
+  filter(Temperatura<10 | Voltaje < 50)
+
+```
+
+Existe un registro con una temperatura muy baja, cerca de 4°C, lo que es muy extraño considerando que la medición fue hecha un 27 de mayo, y que no existe ninguna medición similar. Asimismo, hay 3 mediciones en donde existió una caída considerable del voltaje, llegando hasta los 20V. Debido a estas razones. Para no alterar de más el análisis, se decide eliminar dichos registros.
+
+```{r}
+
+integrex <- integrex %>% 
+  filter(Temperatura > 10 & Voltaje > 50)
+
+integrex %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Temperatura), binwidth = 0.1, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Humedad), binwidth = 0.5, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia")
+
+hist_vol <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Voltaje), binwidth = 0.5, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_cor1 <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Corriente_1), binwidth = 0.10, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 1", y = "Frecuencia")
+
+hist_cor2 <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Corriente_2), binwidth = 0.004, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 2", y = "Frecuencia")
+
+hist_cor3 <- ggplot(data = integrex) +
+  geom_histogram(mapping = aes(x = Corriente_3), binwidth = 0.004, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 3", y = "Frecuencia")
+
+ggarrange(hist_tem, hist_hum, hist_vol, hist_cor1, hist_cor2, hist_cor3,
+          ncol = 2, nrow = 3)
+
+```
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(integrex, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(integrex, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_vol <- ggplot(integrex, aes(y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_cor1 <- ggplot(integrex, aes(y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_cor2 <- ggplot(integrex, aes(y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_cor3 <- ggplot(integrex, aes(y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_tem, box_hum, box_vol, box_cor1, box_cor2, box_cor3,
+          ncol = 3, nrow = 2)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+integrex_semanal <- integrex %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad), Voltaje = mean(Voltaje),
+            Corriente_1 = mean(Corriente_1), Corriente_2 = mean(Corriente_2), Corriente_3 = mean(Corriente_3),
+            Mes = min(as.integer(Mes))) 
+integrex_semanal$Mes <- as.character(integrex_semanal$Mes)
+
+serie_tem <- ggplot(integrex_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkgoldenrod3")
+serie_hum <- ggplot(integrex_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkgoldenrod3")
+serie_vol <- ggplot(integrex_semanal, aes(x = Semana, y = Voltaje, shape= Mes)) + geom_point(color = "darkgoldenrod3")
+
+serie_cors <- ggplot(integrex_semanal, aes(x = Semana, shape = Mes)) + 
+  geom_point(aes(y = Corriente_1), color = "darkgoldenrod3") + 
+  geom_point(aes( y = Corriente_2), color = "darksalmon") +
+  geom_point(aes( y = Corriente_3), color = 'brown') +
+  xlab("Semana") + 
+  ylab("Corrientes") +
+  annotate("text", x = 26.6, y = 0.98, size = 2.5, label = "Corriente 1", color = "darkgoldenrod3") +
+  annotate("text", x = 26.6, y = 0.74, size = 2.5, label = "Corriente 3", color = "brown") + 
+  annotate("text", x = 26.6, y = 0.25, size = 2.5, label = "Corriente 2", color = "darksalmon")
+
+ggarrange(serie_tem, serie_hum, serie_vol, serie_cors,
+          ncol = 2, nrow = 2)
+
+```
+
+#### Observaciones Generales:
+
+-   Había un registro que contaba con la mayoría de las variables siendo 0. Este registro se consideró un error, por lo que se eliminó.
+-   Existían cerca de 69000 valores duplicados, es decir que tenían la exacta misma hora y las mismas mediciones.
+
+#### Observaciones por Variable:
+
+-   Temperatura: Contaba con un valor atípico de 4°C perteneciente al día 27 de mayo, el cual no se puede inferir completamente que sea un error, pero que modifica exageradamente las mediciones y comparaciones de la cariable, por lo que se este registro fue eliminado. Asimismo, hay un tramo de 30 a 37° aproximadamente, en donde no existe ningún dato.
+-   Humedad: Casi todos los datos se encuentran entre los 25 y 45% de humedad.
+-   Voltaje: El voltaje tiene una calidad de datos buena, sin ningún dato atípico y siguiente una distribución altamente normal.
+-   Corrientes: En esta máquina, las 3 corrientes parecen ser muy parecidas entre ellas, teniendo casi la misma distribución y las 3 teniendo la mayoría de sus valores cercanos a 0, pero acercándose a los 20 en muchos casos.
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+integrex_variables <- integrex %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3)
+
+integrex_norm <- normalize(integrex_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(integrex_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(integrex_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(integrex_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   La temperatura y humedad tienen un correlación negativa muy alta.
+-   La temperatura y las corrientes tienen correlaciones positivas muy altas.
+-   Todas las corrientes tienen correlaciones muy altas entre ellas.
+-   El voltaje no parece correlacionarse tanto con ninguna variable, más que con la humedad, aunque la correlación es media.
+
+#### Comparación de las variables para cada día de la semana
+
+```{r echo=FALSE}
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+integrex %>% 
+  group_by(Dia) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_dia_tem <- ggplot(integrex, aes(x = Dia, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_dia_hum <- ggplot(integrex, aes(x = Dia, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_dia_vol <- ggplot(integrex, aes(x = Dia, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_dia_cor1 <- ggplot(integrex, aes(x = Dia, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_dia_cor2 <- ggplot(integrex, aes(x = Dia, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_dia_cor3 <- ggplot(integrex, aes(x = Dia, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_dia_tem,box_dia_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_dia_vol,box_dia_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_dia_cor2,box_dia_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+No se observa una diferencia considerable entre las variables para cada día de la semana. Los valores de estas no parecen tener correlación con los días de la semana.
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+integrex %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(integrex, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(integrex, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(integrex, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(integrex, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(integrex, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(integrex, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_vol, box_mes_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_cor2, box_mes_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+-   Fueron muy pocos días los considerados para poder obtener conclusiones confiables.
+-   La temperatura y corrientes fueron considerablemente mayores en mayo; mientras que la humedad fue considerablemente menor.
+
+## HASS TL3 (#12)
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+haas <- read.csv("Haas.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+haas$Fecha <- as.POSIXct(haas$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+haas$Mes <- as.character(haas$Mes)
+haas$Hora <- as.character(haas$Hora)
+
+head(haas)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+
+```{r echo=FALSE}
+
+haas %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+Esta base de datos no parece contar con ningún registro erróneo, pues los mínimos y máximos de las variables son posibles, aunque las corrientes tienen máximos muy altos.
+
+Se nota que existen duplicados, por lo que se eliminan, quedando 169,731 registros de los 258,211 que habían.
+
+```{r}
+
+haas <- haas %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+
+Se hacen observaciones sobre el dato atípicamente bajo de la temperatura y el del voltaje.
+
+```{r}
+
+haas %>% 
+  filter(Corriente_2 > 10)
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 60, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+hist_vol <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Voltaje), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_cor1 <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Corriente_1), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 1", y = "Frecuencia") + coord_cartesian(ylim = c(0,10))
+
+hist_cor2 <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Corriente_2), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 2", y = "Frecuencia") + coord_cartesian(ylim = c(0,10))
+
+hist_cor3 <- ggplot(data = haas) +
+  geom_histogram(mapping = aes(x = Corriente_3), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 3", y = "Frecuencia") + coord_cartesian(ylim = c(0,10))
+
+ggarrange(hist_tem, hist_hum, hist_vol, hist_cor1, hist_cor2, hist_cor3,
+          ncol = 2, nrow = 3)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(haas, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(haas, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_vol <- ggplot(haas, aes(y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_cor1 <- ggplot(haas, aes(y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_cor2 <- ggplot(haas, aes(y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_cor3 <- ggplot(haas, aes(y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_tem, box_hum, box_vol, box_cor1, box_cor2, box_cor3,
+          ncol = 3, nrow = 2)
+
+```
+
+#### Series de tiempo
+
+```{r}
+
+haas %>% 
+  filter(Mes == 6) %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura))
+
+```
+
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+haas_semanal <- haas %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad), Voltaje = mean(Voltaje),
+            Corriente_1 = mean(Corriente_1), Corriente_2 = mean(Corriente_2), Corriente_3 = mean(Corriente_3),
+            Mes = max(as.integer(Mes))) 
+haas_semanal$Mes <- as.character(haas_semanal$Mes)
+
+serie_tem <- ggplot(haas_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(haas_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+serie_vol <- ggplot(haas_semanal, aes(x = Semana, y = Voltaje, shape= Mes)) + geom_point(color = "darkblue")
+
+serie_cors <- ggplot(haas_semanal, aes(x = Semana, shape = Mes)) + 
+  geom_point(aes(y = Corriente_1), color = "darkgoldenrod3") + 
+  geom_point(aes( y = Corriente_2), color = "darksalmon") +
+  geom_point(aes( y = Corriente_3), color = 'brown') +
+  xlab("Semana") + 
+  ylab("Corrientes") +
+  annotate("text", x = 23.2, y = 1.485, size = 2.5, label = "Corriente 1", color = "darkgoldenrod3") +
+  annotate("text", x = 23.2, y = 1.65, size = 2.5, label = "Corriente 3", color = "brown") + 
+  annotate("text", x = 23.2, y = 1.235, size = 2.5, label = "Corriente 2", color = "darksalmon")
+
+ggarrange(serie_tem, serie_hum, serie_vol, serie_cors,
+          ncol = 2, nrow = 2)
+
+```
+
+#### Observaciones Generales:
+
+-   Existían cerca del 40% de valores duplicados, es decir que tenían la exacta misma hora y las mismas mediciones.
+
+#### Observaciones por Variable:
+
+-   Temperatura: Tiene una distribución sesgada a la derecha, lo que significa que las mayores frecuencias de los datos se encuentran en altas temperatura, aproximadamente como a los 35°C. Los momentos con temperaturas menores a 28°C fueron muy poco comunes.
+-   Humedad: Casi todos los datos se encuentran entre los 35 y 70% de humedad, más hay algunos pocos registros de más de 80%.
+-   Voltaje: El voltaje tiene una distribución bastante inusual, con dos campanas visibles, lo cual, al observar la serie de tiempo parece indicar que uno de los días el voltaje fue 4V mayor que el resto de los días en promedio. Independientemente de eso, la variabilidad de esta variable es bastante baja.
+-   Corrientes: En esta máquina, las 3 corrientes parecen ser muy parecidas entre ellas, teniendo casi la misma distribución y las 3 teniendo la mayoría de sus valores menores a 10. Se logra observar que existen algunas picos de corriente que se traducen como datos atípicos, en donde la corriente ha llegado hasta los 40A.
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+haas_variables <- haas %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3)
+
+haas_norm <- normalize(haas_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(haas_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(haas_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(haas_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   La temperatura y humedad no están correlacionadas, lo que se aleja de las observaciones realizadas en otras máquinas.
+-   La temperatura y el voltaje están algo correlacionados..
+-   Todas las corrientes tienen correlaciones muy altas entre ellas.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+haas %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(haas, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(haas, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(haas, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(haas, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(haas, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(haas, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_vol, box_mes_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_cor2, box_mes_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+-   En junio hubieron muy pocas variaciones y datos atípicos en todas las variables excepto voltaje.
+-   En julio, la humedad ha sido considerablemente mayor que en otros meses.
+
+
+
+## Compresor Kaeser SK20 (#10)
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+compresor <- read.csv("Compresor.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+compresor$Fecha <- as.POSIXct(compresor$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+compresor$Mes <- as.character(compresor$Mes)
+compresor$Hora <- as.character(compresor$Hora)
+
+head(compresor)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+compresor %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+Esta base de datos cuenta con datos erróneos, pues existen valores de 0 en todas las variables y la temperautra, el voltaje, la corriente 1 y la corriente 2 tienen valores extremadamente altos.
+
+Por ello, se procede a eliminar 23 registros con únicamente ceros, 109 registros con voltajes mayores a 300 (aunque todos estos tenían voltajes mayores a los 100,000), 86 registros cuyos valores de corriente 1 son mayores a 100 y 18 registros cuyos valores de corriente 2 son mayores a 100. Por lo que de 615,440 registros que habían, quedaron 615,204.
+
+```{r}
+
+compresor <- compresor %>% 
+  filter(Temperatura > 0) %>% 
+  filter(Temperatura < 100) %>% 
+  filter(Voltaje < 300) %>% 
+  filter(Corriente_1 < 100) %>% 
+  filter(Corriente_2 < 100)
+
+```
+
+Asimismo, se eliminan los duplicados, pasando de 615,204 a 195,788 registros.
+
+```{r}
+
+compresor <- compresor %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+Se vuelve a obtener el resumen estadístico.
+```{r}
+
+compresor %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 60, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+hist_vol <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Voltaje), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_cor1 <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Corriente_1), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 1", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+hist_cor2 <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Corriente_2), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 2", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+hist_cor3 <- ggplot(data = compresor) +
+  geom_histogram(mapping = aes(x = Corriente_3), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 3", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+ggarrange(hist_tem, hist_hum, hist_vol, hist_cor1, hist_cor2, hist_cor3,
+          ncol = 2, nrow = 3)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(compresor, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(compresor, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_vol <- ggplot(compresor, aes(y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_cor1 <- ggplot(compresor, aes(y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_cor2 <- ggplot(compresor, aes(y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_cor3 <- ggplot(compresor, aes(y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_tem, box_hum, box_vol, box_cor1, box_cor2, box_cor3,
+          ncol = 3, nrow = 2)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+compresor_semanal
+```
+
+
+```{r}
+
+compresor_semanal <- compresor %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad), Voltaje = mean(Voltaje),
+            Corriente_1 = mean(Corriente_1), Corriente_2 = mean(Corriente_2), Corriente_3 = mean(Corriente_3),
+            Mes = max(as.integer(Mes)), Contador = count(Temperatura)) 
+compresor_semanal$Mes <- as.character(compresor_semanal$Mes)
+
+serie_tem <- ggplot(compresor_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(compresor_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+serie_vol <- ggplot(compresor_semanal, aes(x = Semana, y = Voltaje, shape= Mes)) + geom_point(color = "darkblue")
+
+serie_cors <- ggplot(compresor_semanal, aes(x = Semana, shape = Mes)) + 
+  geom_point(aes(y = Corriente_1), color = "darkgoldenrod3") + 
+  geom_point(aes( y = Corriente_2), color = "darksalmon") +
+  geom_point(aes( y = Corriente_3), color = 'brown') +
+  xlab("Semana") + 
+  ylab("Corrientes") +
+  annotate("text", x = 16, y = 16.3, size = 2.5, label = "Corriente 1", color = "darkgoldenrod3") +
+  annotate("text", x = 16, y = 17.3, size = 2.5, label = "Corriente 3", color = "brown") + 
+  annotate("text", x = 16, y = 15, size = 2.5, label = "Corriente 2", color = "darksalmon")
+
+ggarrange(serie_tem, serie_hum, serie_vol, serie_cors,
+          ncol = 2, nrow = 2)
+
+```
+
+#### Observaciones Generales:
+
+-   Existían cerca del 70% de valores duplicados, es decir que tenían la exacta misma hora y las mismas mediciones.
+-   En esta base de datos existen muchos datos erróneos en varias variables, ya sea por ser demasiado pequeños o demasiado grandes en relación a lo esperado, la calidad de los datos no es muy buena.
+- Durante 3 semanas de abril se puede observar que el voltaje y las corrientes tuvieron registros muy por debajo de la media, lo que muy probablemente indica que la máquina se mantuvo apagada.
+
+#### Observaciones por Variable:
+
+-   Temperatura: Tiene una distribución bastante uniforme sin datos atípicos. Contaba con un par datos erróneos de cientos de grados y de grados muy por debajo de lo esperado.
+-   Humedad:También una distribución uniforme pero con muchos datos atípicos y una extraña cantidad de datos muy bajos, de menos de 10% de humedad, los cuales parecen ser errores.
+-   Voltaje: Ocurre algo bastante extraño con el voltaje, ya que hay un enorme porcentaje de los registros que se encuentran en el rango de 0 a 100, lo cual no debería de ocurrir de acuerdo al voltaje que debería tener la máquina, el cual debería ser de 220 - 280. Sin embargo, la cantidad es tan grande que incurre en la posibilidad de que en realidad sea porque la máquina no estuvo prendida.
+-   Corrientes: En esta máquina, las 3 corrientes parecen ser muy parecidas entre ellas, teniendo casi la misma distribución y las 3 teniendo la mayoría de sus valores menores a 25. Se logra observar que existen algunas picos de corriente que se traducen como datos atípicos, en donde la corriente ha llegado hasta casi los 90A.
+
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+compresor_variables <- compresor %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3)
+
+compresor_norm <- normalize(compresor_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(compresor_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(compresor_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(compresor_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   La temperatura y humedad tienen una correlación media, lo cual es de esperarse.
+-   La temperatura tiene correlaciones altas con todas las demás variables, lo cual se podría explicar porque conforme las corrientes aumentan la temperatura de la máquina también, pues indica que se está usando.
+-   Entre todas las corrientes y el voltaje se hayan correlaciones muy altas, casi a la par, lo cual es de esperarse en las corrientes, más llama la atención que el voltaje tenga tanta correlación con las corrientes, pues en las otras máquinas parecía no tener mucha relación.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+compresor %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(compresor, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(compresor, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(compresor, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(compresor, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(compresor, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(compresor, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_vol, box_mes_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_cor2, box_mes_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+-   La temperatura y humedad se comportaron muy similarmente a lo largo de los meses, salvo en abril, en donde la temperatura fue inusualmente baja.
+-   Para el voltaje y las corrientes se puede notar que en abril fueron inusualmente bajas, especialmente para el voltaje, que tuvo una gran cantidad de valores entre 0 y 100, lo cual no debería de suceder para el tipo de máquina.
+
+
+## Subestación Nuevo León (Por revisar)
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+subestacion <- read.csv("Subestacion.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+subestacion$Fecha <- as.POSIXct(subestacion$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+subestacion$Mes <- as.character(subestacion$Mes)
+subestacion$Hora <- as.character(subestacion$Hora)
+
+head(subestacion)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+subestacion %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+Se eliminan los duplicados, pasando de 444,845 a 56,014 registros.
+
+```{r}
+
+subestacion <- subestacion %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+
+Esta base de datos cuenta con datos erróneos, pues existen valores de 0 en la humedad y datos muy bajos de temperatura. Asimismo, existen valores muy altos del voltaje, la humedad, la temperatura y las tres corrientes
+
+```{r}
+
+subestacion <- subestacion %>% 
+  filter(Temperatura > 10) %>% 
+  filter(Temperatura < 40) %>% 
+  filter(Voltaje < 200) %>% 
+  filter(Humedad > 20) %>% 
+  filter(Humedad < 80) %>% 
+  filter(Corriente_1 < 9) %>% 
+  filter(Corriente_2 < 9) %>% 
+  filter(Corriente_3 < 9)
+
+```
+
+
+Por lo que de 56,014 registros que habían, quedaron 55,990
+
+
+Se vuelve a obtener el resumen estadístico.
+```{r}
+
+subestacion %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3) %>% 
+  skim_without_charts()
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia") +  coord_cartesian(ylim = c(0,50))
+
+hist_hum <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 60, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+hist_vol <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Voltaje), bins = 60, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia") +  coord_cartesian(ylim = c(0,50))
+
+hist_cor1 <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Corriente_1), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 1", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+hist_cor2 <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Corriente_2), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 2", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+hist_cor3 <- ggplot(data = subestacion) +
+  geom_histogram(mapping = aes(x = Corriente_3), bins = 60, fill = "darkgoldenrod3") +
+  labs(x = "Corriente 3", y = "Frecuencia") + coord_cartesian(ylim = c(0,100))
+
+ggarrange(hist_tem, hist_hum, hist_vol, hist_cor1, hist_cor2, hist_cor3,
+          ncol = 2, nrow = 3)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(subestacion, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(subestacion, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_vol <- ggplot(subestacion, aes(y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_cor1 <- ggplot(subestacion, aes(y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_cor2 <- ggplot(subestacion, aes(y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_cor3 <- ggplot(subestacion, aes(y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_tem, box_hum, box_vol, box_cor1, box_cor2, box_cor3,
+          ncol = 3, nrow = 2)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+subestacion_semanal <- subestacion %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad), Voltaje = mean(Voltaje),
+            Corriente_1 = mean(Corriente_1), Corriente_2 = mean(Corriente_2), Corriente_3 = mean(Corriente_3),
+            Mes = max(as.integer(Mes))) 
+subestacion_semanal$Mes <- as.character(subestacion_semanal$Mes)
+
+serie_tem <- ggplot(subestacion_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(subestacion_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+serie_vol <- ggplot(subestacion_semanal, aes(x = Semana, y = Voltaje, shape= Mes)) + geom_point(color = "darkblue")
+
+serie_cors <- ggplot(subestacion_semanal, aes(x = Semana, shape = Mes)) + 
+  geom_point(aes(y = Corriente_1), color = "darkgoldenrod3") + 
+  geom_point(aes( y = Corriente_2), color = "darksalmon") +
+  geom_point(aes( y = Corriente_3), color = 'brown') +
+  xlab("Semana") + 
+  ylab("Corrientes") +
+  annotate("text", x = 16, y = 1.15, size = 2.5, label = "Corriente 1", color = "darkgoldenrod3") +
+  annotate("text", x = 16, y = 1.25, size = 2.5, label = "Corriente 3", color = "brown") + 
+  annotate("text", x = 16, y = 1.2, size = 2.5, label = "Corriente 2", color = "darksalmon")
+
+ggarrange(serie_tem, serie_hum, serie_vol, serie_cors,
+          ncol = 2, nrow = 2)
+
+```
+
+#### Observaciones Generales:
+
+-   Esta base de datos es altamenete inconsistente y con una gran cantidad de datos erróneos y atípicos, 
+-   Existen dos variables, temperatura y humedad, que no cambiaron en lo absoluto; mientras que las corrientes tienen extremadamente pocas variaciones, una vez quitando los atípicos.
+-   La base de datos también contaba con una enorme cantidad de datos duplicados, cerca del 88%, lo cual nos indica que la mayor parte del tiempo no huiberon varciones lo suficientemente grandes para ser registradas.
+
+#### Observaciones por Variable:
+
+-   Temperatura: Durante todos los días se mantuvo en 20°C
+-   Humedad: Durante todos los días se mantuvo en 50%.
+-   Voltaje: El voltaje en la subestación fue muy bajo, de aproximadamente 1 en todos los días, lo cual difiere mucho de las anteriores máquinas. Es posible que el voltaje bajo sea una característica de este tipo de máquinas.
+-   Corrientes: Las 3 corrientes se mantienen extremadamente similares en todos los días, con una variación muy pequeña.
+
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+subestacion_variables <- subestacion %>% 
+  select(Temperatura, Humedad, Voltaje, Corriente_1, Corriente_2, Corriente_3)
+
+subestacion_norm <- normalize(subestacion_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(subestacion_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(subestacion_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(subestacion_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   Al existir una nula o muy escaza variación, la temperatura, humedad y corrientes no tienen correlaciones.
+-   El voltaje tiene una considerable correlación con la corriente 1.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Voltaje), "Mínimo" = min(Voltaje),
+            "Primer cuartil" = quantile(Voltaje, probs = 0.25), "Segundo cuartil" = quantile(Voltaje, probs = 0.5),
+            "Tercer cuartil" = quantile(Voltaje, probs = 0.75), "Máximo" = max(Voltaje))
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_1), "Mínimo" = min(Corriente_1),
+            "Primer cuartil" = quantile(Corriente_1, probs = 0.25), "Segundo cuartil" = quantile(Corriente_1, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_1, probs = 0.75), "Máximo" = max(Corriente_1))
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_2), "Mínimo" = min(Corriente_2),
+            "Primer cuartil" = quantile(Corriente_2, probs = 0.25), "Segundo cuartil" = quantile(Corriente_2, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_2, probs = 0.75), "Máximo" = max(Corriente_2))
+
+subestacion %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Corriente_3), "Mínimo" = min(Corriente_3),
+            "Primer cuartil" = quantile(Corriente_3, probs = 0.25), "Segundo cuartil" = quantile(Corriente_3, probs = 0.5),
+            "Tercer cuartil" = quantile(Corriente_3, probs = 0.75), "Máximo" = max(Corriente_3))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(subestacion, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(subestacion, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(subestacion, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(subestacion, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(subestacion, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(subestacion, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_vol, box_mes_cor1,
+          ncol = 2, nrow = 1)
+ggarrange(box_mes_cor2, box_mes_cor3,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+-   La temperatura y humedad se comportaron muy similarmente a lo largo de los meses, salvo en abril, en donde la temperatura fue inusualmente baja.
+-   Para el voltaje y las corrientes se puede notar que en abril fueron inusualmente bajas, especialmente para el voltaje, que tuvo una gran cantidad de valores entre 0 y 100, lo cual no debería de suceder para el tipo de máquina.
+
+
+
+
+
+
+
+
+
+
+
+## ESP32-1
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+esp1 <- read.csv("ESP32_1.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+esp1$Fecha <- as.POSIXct(esp1$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+esp1$Mes <- as.character(esp1$Mes)
+esp1$Hora <- as.character(esp1$Hora)
+
+head(esp1)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+esp1 %>% 
+  select(Temperatura, Humedad) %>% 
+  skim_without_charts()
+
+```
+
+Esta base de datos no parece contar con datos erróneos, pues los rangos de las variables hacen sentido.
+
+
+A continuación, se checan los duplicados, más la base de datos no cuenta con estos.
+
+```{r}
+
+esp1 <- esp1 %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = esp1) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 20, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = esp1) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 20, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+ggarrange(hist_tem, hist_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(esp1, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(esp1, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+
+ggarrange(box_tem, box_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+esp1_semanal <- esp1 %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad),
+            Mes = max(as.integer(Mes))) 
+esp1_semanal$Mes <- as.character(esp1_semanal$Mes)
+
+serie_tem <- ggplot(esp1_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(esp1_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+
+ggarrange(serie_tem, serie_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Observaciones Generales:
+
+-   La base de datos es de excelente calidad, sin datos duplicados o erróneos.
+
+#### Observaciones por Variable:
+
+-   **Temperatura:** La temperatura va de los 19 a 28°C, teniendo la más alta frecuencia alrededor de los 25.5°C. En abril la temperatura fue inusualmente relativamente alta.
+-   **Humedad:**  La humedad tiene unos picos en algunos puntos con altas frecuencias, así como algunos datos atípicos de aproximadamente 70.5%. En junio se registraron los valores más bajos.
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+esp1_variables <- esp1 %>% 
+  select(Temperatura, Humedad)
+
+esp1_norm <- normalize(esp1_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(esp1_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(esp1_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(esp1_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   La temperatura y la humedad tienen una correlación media positiva, contrario a lo visto en el resto de máquinas en donde habían tenido correlaciones altas y negativas.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+esp1 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+esp1 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(esp1, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(esp1, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(esp1, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(esp1, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(esp1, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(esp1, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+**Observaciones**
+
+-   En el mes de mayo es en donde se encuentran las temperaturas más altas.
+-   **El mes de junio tiene 106,312 registros, los cuales son exactamente iguales. Esto probablemente se debió al cese de servicio que hubo en la plataforma desde mayo.**
+
+
+
+
+
+## ESP32-2
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+esp2 <- read.csv("ESP32_2.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+esp2$Fecha <- as.POSIXct(esp2$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+esp2$Mes <- as.character(esp2$Mes)
+esp2$Hora <- as.character(esp2$Hora)
+
+head(esp2)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+esp2 %>% 
+  select(Temperatura, Humedad) %>% 
+  skim_without_charts()
+
+```
+
+Esta base de datos no parece contar con datos erróneos, pues los rangos de las variables hacen sentido.
+
+
+A continuación, se checan los duplicados, más la base de datos no cuenta con estos. 
+
+```{r}
+
+esp2 <- esp2 %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = esp2) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 50, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = esp2) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 40, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+ggarrange(hist_tem, hist_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(esp2, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(esp2, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+
+ggarrange(box_tem, box_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+esp2_semanal <- esp2 %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad),
+            Mes = max(as.integer(Mes))) 
+esp2_semanal$Mes <- as.character(esp2_semanal$Mes)
+
+serie_tem <- ggplot(esp2_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(esp2_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+
+ggarrange(serie_tem, serie_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Observaciones Generales:
+
+-   La base de datos es de excelente calidad, sin datos duplicados o erróneos.
+-   La variación de los datos es muy pequeñas y parece ser que hay muchas mediciones que fueron iguales o casi iguales. 
+
+#### Observaciones por Variable:
+
+-   **Temperatura:** La temperatura va de los 19 a 27°. Sin embargo, casi todos los registros son de 20.4°C y durante los meses de mayo y junio parece no cambiar.
+-   **Humedad:**  La humedad va del 43 al 90%. No obstante, al igual que la temperatura, casi todos sus registros son iguales en los meses de mayo y junio, sólo variando considerablemente hasta julio.
+
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+esp2_variables <- esp2 %>% 
+  filter(Mes == "7") %>% 
+  select(Temperatura, Humedad) 
+
+esp2_norm <- normalize(esp2_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+Para hacer las correlaciones sólo se condieró el mes de julio, pues los otros dos meses, tnato la temperatura como la humedad tuvieorn exactamente el mismo valor.
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(esp2_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(esp2_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(esp2_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   La temperatura y la humedad tienen una correlación positiva muy alta, lo cual es lo contrario a lo que había ocurrido en las máquinas de manufactura, en donde estas variables tenían correlaciones altas negativas.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+esp2 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+esp2 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(esp2, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(esp2, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(esp2, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(esp2, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(esp2, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(esp2, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+
+**Observaciones**
+
+-   Tanto en mayo como en junio el valor de temperatura y humedad fué exactamente igual, de 20.41 y 53.61 respectivamente, esto debido probablemente a un error de medición o que las máquinas no fueron utilizadas.
+- En julio los registros sí parecen ser normales, demostrando una variación usual y sin valores atípicos.
+
+
+
+## ESP32-3
+
+Primeramente, se importa la base de datos y se ajustan los tipos de variables.
+
+```{r}
+
+esp3 <- read.csv("ESP32_3.csv",header = TRUE)
+
+#Ajustar los tipos de variables
+options(digits.secs = 6)
+esp3$Fecha <- as.POSIXct(esp3$Fecha, format="%Y-%m-%d %H:%M:%OS", tz="UTC")
+esp3$Mes <- as.character(esp3$Mes)
+esp3$Hora <- as.character(esp3$Hora)
+
+head(esp3)
+
+```
+
+
+### Análisis de Variaciones
+
+#### Estadísticas Descriptivas
+
+A continuación se checa la estadística descriptiva de la tabla.
+
+```{r echo=FALSE}
+
+esp3 %>% 
+  select(Temperatura, Humedad) %>% 
+  skim_without_charts()
+
+```
+
+Esta base de datos no parece contar con datos erróneos, pues los rangos de las variables hacen sentido.
+
+
+A continuación, se checan los duplicados, más la base de datos no cuenta con estos. 
+
+```{r}
+
+esp3 <- esp3 %>% 
+  distinct() #Eliminar duplicados
+
+```
+
+
+#### Histogramas
+
+A continuación se despliegan los histogramas de cada variable.
+
+```{r}
+
+hist_tem <- ggplot(data = esp3) +
+  geom_histogram(mapping = aes(x = Temperatura), bins = 50, fill = "darkgoldenrod3") +
+  labs(y = "Frecuencia")
+
+hist_hum <- ggplot(data = esp3) +
+  geom_histogram(mapping = aes(x = Humedad), bins = 40, fill = "darkgoldenrod3") + 
+  labs(y = "Frecuencia") 
+
+ggarrange(hist_tem, hist_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+
+#### Gráficas de Caja y Bigote
+
+A continuación se muestran las gráficas de caja de las variables
+
+```{r}
+
+box_tem <- ggplot(esp3, aes(y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_hum <- ggplot(esp3, aes(y = Humedad)) + geom_boxplot(fill = "cornsilk")
+
+ggarrange(box_tem, box_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Series de tiempo
+
+A continuación se muestran cómo cambian los valores de las variables a través de las semanas.
+
+```{r}
+
+esp3_semanal <- esp3 %>% 
+  group_by(Semana) %>% 
+  summarise(Temperatura = mean(Temperatura), Humedad = mean(Humedad),
+            Mes = max(as.integer(Mes))) 
+esp3_semanal$Mes <- as.character(esp3_semanal$Mes)
+
+serie_tem <- ggplot(esp3_semanal, aes(x = Semana, y = Temperatura, shape= Mes)) + geom_point(color = "darkblue")
+serie_hum <- ggplot(esp3_semanal, aes(x = Semana, y = Humedad, shape= Mes)) + geom_point(color = "darkblue")
+
+ggarrange(serie_tem, serie_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+#### Observaciones Generales:
+
+-   La base de datos es de excelente calidad, sin datos duplicados o erróneos.
+-   La variación de los datos es la esperada y su distribución con algunos picos muy altos puede explicarse por la baja variación de las variables durante tiempos prolongados.
+-   Durante el mes de junio no parece haber existido variabilidad alguna.
+
+#### Observaciones por Variable:
+
+-   **Temperatura:** La temperatura va de los 24 a 29°C. Sin embargo, la mayoría de los registros se aglutinan entre los 25.5 y 26.5°C.
+-   **Humedad:**  La humedad va del 47 al 71.1%. Siendo 56% el valor más común.
+
+
+### Análisis de Correlaciones
+
+Previo a la obtención de las correlaciones, es necesario extraer las columnas con las variables de interés y normalizar estos datos para una compraración adecuada.
+
+```{r}
+
+esp3_variables <- esp3 %>% 
+  filter(Mes =="5" | Mes == "7") %>% 
+  select(Temperatura, Humedad) 
+
+esp3_norm <- normalize(esp3_variables)
+
+```
+
+#### Matriz de Correlaciones
+
+Para hacer las correlaciones no se consieró al mes de junio, pues sus variables se mantuvieron constantes.
+
+```{r include=FALSE}
+
+par(mfrow = c(1,2))
+
+correlaciones <- round(cor(esp3_norm, method = "pearson"), 2)
+corr1 <- corrplot(correlaciones, method = "number", type = "upper")
+
+correlaciones <- round(cor(esp3_norm, method = "spearman"), 2)
+corr2 <- corrplot(correlaciones, method = "number", type = "upper")
+
+```
+
+Considerando que las variables no son normales ni parecen presentar una correlación lineal, el **método de Pearson** no cumple con los requisitos necesarios para considerarse una buena opción. Por otro lado, el **método de Spearman** es especialmente bueno para casos en donde existen muchos valores atípicos, no normalidad ni linealidad.
+
+A continuación se presenta otra gráfica mostrando las gráficas de correlación con el método de Spearman.
+
+```{r echo=FALSE, warning=FALSE}
+  
+chart.Correlation(esp3_norm, histogram = FALSE, pch = 20, method = "spearman")
+
+```
+
+**Observaciones**
+
+-   Contrario a lo que había ocurrido antes, aquí la correlación es baja y negativa entre las dos variables. Esto se debe a que el dispositivo IoT se ha mantenido en mantenimiento en la oficina, en donde las temperaturas y procentajes de humedad cambian constantemente, sin mencionar que el mismo se mueve de un lado a otro con bastante regularidad.
+
+
+#### Comparación de las variables para cada mes
+
+```{r echo=FALSE}
+
+esp3 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Temperatura), "Mínimo" = min(Temperatura),
+            "Primer cuartil" = quantile(Temperatura, probs = 0.25), "Segundo cuartil" = quantile(Temperatura, probs = 0.5),
+            "Tercer cuartil" = quantile(Temperatura, probs = 0.75), "Máximo" = max(Temperatura))
+
+esp3 %>% 
+  group_by(Mes) %>% 
+  summarise("Promedio" = mean(Humedad), "Mínimo" = min(Humedad),
+            "Primer cuartil" = quantile(Humedad, probs = 0.25), "Segundo cuartil" = quantile(Humedad, probs = 0.5),
+            "Tercer cuartil" = quantile(Humedad, probs = 0.75), "Máximo" = max(Humedad))
+
+```
+
+```{r echo=FALSE}
+
+box_mes_tem <- ggplot(esp3, aes(x = Mes, y = Temperatura)) + geom_boxplot(fill = "cornsilk")
+box_mes_hum <- ggplot(esp3, aes(x = Mes, y = Humedad)) + geom_boxplot(fill = "cornsilk")
+box_mes_vol <- ggplot(esp3, aes(x = Mes, y = Voltaje)) + geom_boxplot(fill = "cornsilk")
+box_mes_cor1 <- ggplot(esp3, aes(x = Mes, y = Corriente_1)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 1")
+box_mes_cor2 <- ggplot(esp3, aes(x = Mes, y = Corriente_2)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 2")
+box_mes_cor3 <- ggplot(esp3, aes(x = Mes, y = Corriente_3)) + geom_boxplot(fill = "cornsilk") + labs(y = "Corriente 3")
+
+ggarrange(box_mes_tem, box_mes_hum,
+          ncol = 2, nrow = 1)
+
+```
+
+
+**Observaciones**
+
+-   Al igual que los otros ESP32, durante el mes de junio las variables se mantuvieron constantes, siendo de 26.18°C y 56.48% de humedad.
+-   Por otro lado, el mes de julio presentó la humedad más alta, aunque con una gran cantidad de datos atípicos. Datos atípicos también se pudieron notar en la humedad durante el mes de mayo.
+
+
+
+
+
