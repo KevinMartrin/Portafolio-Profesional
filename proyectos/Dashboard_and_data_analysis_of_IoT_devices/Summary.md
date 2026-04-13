@@ -6,7 +6,7 @@ Develop interactive visualizations (dashboards) and correlation analyses for var
 
 ## 📦 Project Deliverables
 - 📊 **Notebooks:** Python notebooks as [Historic_data_processing.ipynb](Reports/Historic_data_processing.ipynb) for extraction and data processing.
-- 🗂️ **Technical Reports:** Detailed variable analysis for each machine generated with [R](Reports/ReportesDatosHistoricos.Rmd). An instance of the final report for a machine is shown in [Reporte Variaxis-11.pdf](Reports/Reporte Variaxis-11.pdf).
+- 🗂️ **Technical Reports:** Detailed variable analysis for each machine generated with [R](Reports/ReportesDatosHistoricos.Rmd). An instance of the final report for a machine is shown in [Reporte Variaxis-11.pdf](Reports/'Reporte Variaxis-11.pdf').
 - 📁 **Extracted Data:** Relevant machine datasets retrieved from a MongoDB non-relational database.
 - 🌐 [**Dashboard:**](Dashboard/Dashboard.html) A real-time interactive monitoring panel built with the Python Dash framework [code](Dashboard/Dashboard.ipynb).
 - 📃 [**Poster**](Poster.pdf) With details of the project outputs and important insights.
@@ -32,7 +32,7 @@ Desarrollar visualizaciones interactivas (dashboards) y análisis de correlació
 
 ## 📦 Entregables del Proyecto
 - 📊 **Notebooks:** Cuadernos de python como [Historic_data_processing.ipynb](Reports/Historic_data_processing.ipynb) para la importación y procesamiento de datos.
-- 🗂️ **Reportes técnicos:** Análisis detallado de las variables de cada máquina utilizando [R](Reports/ReportesDatosHistoricos.Rmd). En ejemplo del reporte final para cada máquina se encuentra en [Reporte Variaxis-11.pdf](Reports/Reporte Variaxis-11.pdf).
+- 🗂️ **Reportes técnicos:** Análisis detallado de las variables de cada máquina utilizando [R](Reports/ReportesDatosHistoricos.Rmd). En ejemplo del reporte final para cada máquina se encuentra en [Reports/'Reporte Variaxis-11.pdf'](Reports/Reporte Variaxis-11.pdf).
 - 📁 **Datos Extraidos:** Base de datos de las máquinas obtenidos de una base de datos no relacional MongoDB.
 - 🌐 [**Dashboard:**](Dashboard/Dashboard.html) Un panel interactivo en tiempo real construido mediante [código de Python](Dashboard/Dashboard.ipynb), utilizando el marco de desarrollo Dash.
 - 📃 [**Poster**](Poster.pdf) Con detalles sobre los resultados del proyecto y hallazgos importantes.
