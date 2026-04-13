@@ -5,11 +5,11 @@ I participated as a researcher in CIDESI, at PIIT Nuevo Leon, during the researc
 Develop interactive visualizations (dashboards) and correlation analyses for variables captured by IIoT (Industrial Internet of Things) sensors connected to CNC machines, with the aim of enhancing system behavior understanding and supporting data-driven decision-making.
 
 ## 📦 Project Deliverables
-- 📊 **Notebooks:** Developed using Python for data exploration.
-- 🗂️ **Technical Reports:** Detailed variable analysis for each machine generated with R.
-- 🧮 **Scripts** For data cleaning, transformation, and exportation.
-- 🌐 **Dashboard:** A real-time interactive monitoring panel built with the Python Dash framework.
+- 📊 **Notebooks:** Python notebooks as [Historic_data_processing.ipynb](Reports/Historic_data_processing.ipynb) for data processing.
+- 🗂️ **Technical Reports:** Detailed variable analysis for each machine generated with [R](ReportesDatosHistoricos.Rmd). An instance of the final report for a machine is shown in [Reporte Variaxis-11.pdf](Reporte Variaxis-11.pdf).
 - 📁 **Extracted Data:** Relevant machine datasets retrieved from a MongoDB non-relational database.
+- 🌐 **Dashboard:** A real-time interactive monitoring panel built with the Python Dash framework.
+- 📃 [**Poster**](Poster.pdf) With details of the project outputs and important insights.
 
 ## 🛠️ Tools and Technologies
 - Python (Pandas, Matplotlib, Seaborn, Dash)
