@@ -1,48 +1,44 @@
-# [EN] Web Application for the Secure Management of Documents’ Electronic Signatures 
-I participated as a researcher in CIDESI, at PIIT Nuevo Leon, during the research summer internship 2025. I worked in the diagnosis of performance of CNC machinery for high-precision machined parts using IoT devices.
+# [EN] Web Application for Secure Electronic Document Signature Management
+Academic project in collaboration with a Civil Society Organization (CSO) aimed at automating electronic document signature workflows while ensuring confidentiality and non-repudiation.
 
 ## 🎯 Objective
-Develop interactive visualizations (dashboards) and correlation analyses for variables captured by IIoT (Industrial Internet of Things) sensors connected to CNC machines, with the aim of enhancing system behavior understanding and supporting data-driven decision-making.
+To develop an electronic signature management and workflow platform that enables the partner organization to streamline document authorization and signing processes. The project enhances the security and reliability of digital signatures while eliminating the need for paper-based documentation.
 
 ## 📦 Project Deliverables
-- 📊 **Notebooks:** Python notebooks as [Historic_data_processing.ipynb](Reports/Historic_data_processing.ipynb) for extraction and data processing.
-- 🗂️ **Technical Reports:** Detailed variable analysis for each machine generated with [R](Reports/ReportesDatosHistoricos.Rmd). An instance of the final report for a machine is shown in [Reporte Variaxis-11.pdf](Reports/Reporte_Variaxis-11.pdf).
-- 📁 **Extracted Data:** Relevant machine datasets retrieved from a MongoDB non-relational database.
-- 🌐 [**Dashboard:**](Dashboard/Dashboard.html) A real-time interactive monitoring panel built with the Python Dash framework [code](Dashboard/Dashboard.ipynb).
-- 📃 [**Poster**](Poster.pdf) With details of the project outputs and important insights.
+- **📊 Web Application:** Improves the organization's secure document management through digital signatures and other cryptographic tools. Authorized users can upload documents, assign custom digital signature routes to other members, monitor progress, and view their signature history. Administrators can manage user permissions and oversee signature workflows across the entire organization.
+- **📁 User Manual & Documentation:** A public GitHub repository containing detailed information on the platform's processes and functionalities to assist the organization's administrators and developers.
+- **🗂️ Technical Report:** An in-depth document covering the platform’s objectives and features, providing a detailed explanation of every tool used during development.
 
 ## 🛠️ Tools and Technologies
-- Python (Pandas, Matplotlib, Seaborn, Dash)
-- Jupyter Notebooks
-- MongoDB as database
-- MQTT Protocols / API REST
-- Git y GitHub (version control)
-
-## 👨‍🎓 Developed by
-**Kevin Jesús Martínez Trinidad**  
-
+- Power Apps: Application hosting and UI/UX design.
+- Azure Database (SQL Server): Relational data management.
+- Python (Pyhanko): PDF document signing and validation.
+- OpenSSL: Creation and management of private keys and certificates.
+- Azure Functions and Blob Storage: Implementation of certificates and signature logic within the application.
+- Power Automate: Automated notifications and in-app download triggers.
+- Git & GitHub: Version control system and documentation hosting. 
 
 
 # [ES] Aplicación Web para la Gestión Segura de Firmas Electrónicas de Documentos 
 
-Participé como investigador en CIDESI, en el PIIT Nuevo León, durante la estancia de investigación de verano 2025. Me encargué del diagnóstico de desempeño de maquinaria CNC para piezas mecanizadas de alta precisión por medio de dispositivos IoT.
+Proyecto académico en colaboración con una OSC con la finalidad de automatizar flujos de firma de documentos de manera electrónica, asegurando la confidencialidad y la no repudiación.
 
 ## 🎯 Objetivo
-Desarrollar visualizaciones interactivas (dashboards) y análisis de correlación para variables capturadas por sensores IIoT (Internet de las Cosas Industrial) conectados a una máquina CNC, con el fin de mejorar el entendimiento del comportamiento del sistema y apoyar la toma de decisiones basada en datos.
+Desarrollar una plataforma de gestión y flujos de firmas electrónicas que permita a la empresa asociada eficientizar los procesos de autorizaciónn y firmado de documentos, toda vez que se mejora la seguridad y confiabilidad de las firmas digitales, delegando el uso de papelería.
 
 ## 📦 Entregables del Proyecto
-- 📊 **Notebooks:** Cuadernos de python como [Historic_data_processing.ipynb](Reports/Historic_data_processing.ipynb) para la importación y procesamiento de datos.
-- 🗂️ **Reportes técnicos:** Análisis detallado de las variables de cada máquina utilizando [R](Reports/ReportesDatosHistoricos.Rmd). En ejemplo del reporte final para cada máquina se encuentra en [Reporte_Variaxis-11.pdf](Reports/Reporte_Variaxis-11.pdf).
-- 📁 **Datos Extraidos:** Base de datos de las máquinas obtenidos de una base de datos no relacional MongoDB.
-- 🌐 [**Dashboard:**](Dashboard/Dashboard.html) Un panel interactivo en tiempo real construido mediante [código de Python](Dashboard/Dashboard.ipynb), utilizando el marco de desarrollo Dash.
-- 📃 [**Poster**](Poster.pdf) Con detalles sobre los resultados del proyecto y hallazgos importantes.
+- 📊 **Aplicación Web:** Permite eficientizar la gestión segura de documentos de la organizaciónn a través de firmas digitales y otras herramientas criptográficas. En ella, los usuarios autorizados pueden subir documentos, asignarles una ruta personalizada de firmado digital hacia el resto de personas de la organización y monitorear el progreso, así como ver su historial de firmas. Por otro lado, los administradores pueden modificar permisos de usuarios y monitorear los flujos de firmas de toda la organización.
+- 📁 **[Manual de Uso y Documentación](https://github.com/juanjo-bltrn/morfosis-app):** Repositorio público de Github con información de los procesos y funcionalidades que ofrece la plataforma. Con el fin de asistir a los administradores y desarrolladores de la organización.
+- 🗂️ **[Reporte técnico](https://github.com/KevinMartrin/Portfolio/blob/main/projects/Digital_signatures_web_app/Reporte%20Te%CC%81cnico%20Morfosis.pdf.zip):** En donde se profundiza en el objetivo y funcionalidades de la plataforma, explicando a detalle cada herramienta utilizada durante el desarrollo
 
 ## 🛠️ Herramientas y Tecnologías
-- Python (Pandas, Matplotlib, Seaborn, Dash)
-- Jupyter Notebooks
-- MongoDB como fuente de datos
-- Protocolos MQTT / API REST
-- Git y GitHub como sistema de control de versiones
+- Power Apps: Para el alojamiento diseño UI/UX.
+- Azure Database (SQL Server).
+- Python (Pyhanko): Para el firmado de documentos pdf.
+- OpenSSL: Para la la creación y gestión de llaves privadas y certificados.
+- Azure Functions y Blob Storage: Para la impllementación de los certificados y firmas dentro de la aplicación.
+- Power Automate: Para notificaciones y descargas dentro de la aplicación.
+- Git y GitHub: Como sistema de control de versiones.
 
 ## 👨‍🎓 Desarrollado por
 **Kevin Jesús Martínez Trinidad**
